@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>マルバツゲーム</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      font-family: sans-serif;
+      color: white;
+      background: radial-gradient(circle at top, #1a0f2e 0%, #0b1020 45%, #05070d 100%);
+      touch-action: manipulation;
+    }
+
+    .game {
+      width: min(92vw, 420px);
+      padding: 20px;
+      border-radius: 24px;
+      text-align: center;
+      background: rgba(8, 12, 24, 0.85);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.2),
+        0 0 40px rgba(255, 0, 255, 0.2);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(24px, 6vw, 32px);
+      line-height: 1.2;
+      text-shadow:
+        0 0 10px #00f7ff,
+        0 0 20px #ff00ff;
+    }
+
+    #status {
+      margin-bottom: 16px;
+      min-height: 28px;
+      font-size: clamp(16px, 4vw, 20px);
+      font-weight: bold;
+      text-shadow: 0 0 8px #00f7ff;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+      max-width: 330px;
+      margin: 0 auto;
+    }
+
+    .cell {
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      min-height: 88px;
+      font-size: clamp(38px, 10vw, 50px);
+      border-radius: 14px;
+      cursor: pointer;
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      background: rgba(20, 30, 60, 0.8);
+      color: white;
+      box-shadow:
+        0 0 10px rgba(0, 255, 255, 0.2),
+        inset 0 0 10px rgba(255, 255, 255, 0.05);
+      transition: 0.2s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+    }
+
+    .cell:hover {
+      transform: scale(1.03);
+      box-shadow:
+        0 0 20px #00f7ff,
+        0 0 30px #ff00ff;
+    }
+
+    .cell:active {
+      transform: scale(0.95);
+    }
+
+    .o {
+      color: #00e5ff;
+      text-shadow:
+        0 0 10px #00e5ff,
+        0 0 20px #00e5ff;
+    }
+
+    .x {
+      color: #ff00ff;
+      text-shadow:
+        0 0 10px #ff00ff,
+        0 0 20px #ff00ff;
+    }
+
+    .disabled {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    button {
+      margin-top: 18px;
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00f7ff, #ff00ff);
+      color: black;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      .game {
+        width: 100%;
+        padding: 16px;
+        border-radius: 20px;
+      }
+
+      .board {
+        gap: 8px;
+        max-width: none;
+      }
+
+      .cell {
+        min-height: 84px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game">
+    <h1>マルバツゲーム</h1>
+    <div id="status">あなたの番（〇）</div>
+
+    <div class="board" id="board">
+      <div class="cell" data-i="0"></div>
+      <div class="cell" data-i="1"></div>
+      <div class="cell" data-i="2"></div>
+      <div class="cell" data-i="3"></div>
+      <div class="cell" data-i="4"></div>
+      <div class="cell" data-i="5"></div>
+      <div class="cell" data-i="6"></div>
+      <div class="cell" data-i="7"></div>
+      <div class="cell" data-i="8"></div>
+    </div>
+
+    <button id="reset">リセット</button>
+  </div>
+
+  <script>
+    const cells = document.querySelectorAll(".cell");
+    const statusText = document.getElementById("status");
+    const resetBtn = document.getElementById("reset");
+
+    let board = ["", "", "", "", "", "", "", "", ""];
+    let game = true;
+
+    const player = "〇";
+    const bot = "✕";
+
+    const win = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    function check(p) {
+      return win.some(v => v.every(i => board[i] === p));
+    }
+
+    function draw() {
+      return board.every(v => v !== "");
+    }
+
+    function click(e) {
+      const i = e.currentTarget.dataset.i;
+
+      if (board[i] !== "" || !game) return;
+
+      put(i, player);
+
+      if (check(player)) {
+        statusText.textContent = "あなたの勝ち！";
+        game = false;
+        return;
+      }
+
+      if (draw()) {
+        statusText.textContent = "引き分け";
+        game = false;
+        return;
+      }
+
+      statusText.textContent = "botの番...";
+      disable();
+
+      setTimeout(() => {
+        botMove();
+
+        if (check(bot)) {
+          statusText.textContent = "botの勝ち！";
+          game = false;
+          return;
+        }
+
+        if (draw()) {
+          statusText.textContent = "引き分け";
+          game = false;
+          return;
+        }
+
+        statusText.textContent = "あなたの番（〇）";
+        enable();
+      }, 400);
+    }
+
+    function put(i, p) {
+      board[i] = p;
+      cells[i].textContent = p;
+
+      if (p === player) {
+        cells[i].classList.add("o");
+      } else {
+        cells[i].classList.add("x");
+      }
+    }
+
+    function botMove() {
+      let empty = [];
+
+      board.forEach((v, i) => {
+        if (v === "") empty.push(i);
+      });
+
+      for (let i of empty) {
+        board[i] = bot;
+        if (check(bot)) {
+          board[i] = "";
+          put(i, bot);
+          return;
+        }
+        board[i] = "";
+      }
+
+      for (let i of empty) {
+        board[i] = player;
+        if (check(player)) {
+          board[i] = "";
+          put(i, bot);
+          return;
+        }
+        board[i] = "";
+      }
+
+      if (board[4] === "") {
+        put(4, bot);
+        return;
+      }
+
+      let r = empty[Math.floor(Math.random() * empty.length)];
+      put(r, bot);
+    }
+
+    function disable() {
+      cells.forEach(c => c.classList.add("disabled"));
+    }
+
+    function enable() {
+      cells.forEach((c, i) => {
+        if (board[i] === "") {
+          c.classList.remove("disabled");
+        }
+      });
+    }
+
+    function reset() {
+      board = ["", "", "", "", "", "", "", "", ""];
+      game = true;
+      statusText.textContent = "あなたの番（〇）";
+
+      cells.forEach(c => {
+        c.textContent = "";
+        c.classList.remove("o", "x", "disabled");
+      });
+    }
+
+    cells.forEach(c => c.addEventListener("click", click));
+    resetBtn.addEventListener("click", reset);
+  </script>
+
+</body>
+</html>
